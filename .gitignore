@@ -208,3 +208,4 @@ __marimo__/
 
 # ignorar el file
 *.jsonlines
+*.pdf
