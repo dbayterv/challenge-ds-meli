@@ -26,6 +26,7 @@ The deliverables are:
 import json
 import pandas as pd
 from src.processing.data_processing import process_data
+from src.modeling.feature_selection import feature_selection_random_forest
 
 
 
@@ -76,8 +77,19 @@ if __name__ == "__main__":
 
     print("Data processing finished.")
     print(f"Features for modeling: {len(X_train_processed[0].keys())}")
-    # Now you can use X_train_processed, y_train_processed, X_test_processed, y_test
-    # for your feature selection and modeling steps.
+    
+    # 2. Feature Selection
+    print("\nStarting feature selection...")
+    selected_features, importances, model = feature_selection_random_forest(
+        X_train=X_train_processed,
+        y_train=y_train_processed,
+        X_test=X_test_processed,
+        y_test=y_test,
+        n_features=15
+    )
+
+    # Now you can use the 'selected_features' for the final model training
+    print("\nFeature selection completed.")
     # ...
 
 
