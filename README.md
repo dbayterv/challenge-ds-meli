@@ -29,6 +29,9 @@ Structured logging is provided by **loguru**, and error handling is integrated a
 ```
 ├── LICENSE
 ├── README.md
+├── DOC.md                # Working Explanation
+├── poetry.lock
+├── pyproject.toml
 ├── main.py               # Entry point for the pipeline
 ├── MLA_100k_checked_v3.jsonlines  # Dataset (JSONLines)
 ├── pyproject.toml        # Poetry configuration
@@ -72,7 +75,7 @@ Structured logging is provided by **loguru**, and error handling is integrated a
 ## Usage
 Run the full pipeline:
 ```bash
-python main.py
+python main.py o poetry run python main.py
 ```
 Logs will be displayed in the console with colorized, timestamped output.
 
@@ -83,9 +86,8 @@ Logs will be displayed in the console with colorized, timestamped output.
 ## Pipeline Steps
 1. **Data Loading:** `build_dataset()` reads and splits data.
 2. **Data Processing:** `process_data()` applies JSON expansion, cleaning, feature engineering, and data type conversions.
-3. **Feature Selection:** `feature_selection_random_forest()` selects top features using a Random Forest classifier.
-4. **Random Forest Training:** `train_and_evaluate()` trains and evaluates the final Random Forest on all features to select top 15.
-5. **XGBoost Training:** `train_and_evaluate_xgboost()` trains and evaluates an XGBoost classifier on the select features.
+3. **Feature Selection:** `feature_selection_random_forest()` selects top 15 features using a Random Forest classifier.
+4. **XGBoost Training:** `train_and_evaluate_xgboost()` trains and evaluates an XGBoost classifier on the select features.
 
 
 ## Results
