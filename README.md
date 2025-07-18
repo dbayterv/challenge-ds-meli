@@ -35,15 +35,19 @@ Structured logging is provided by **loguru**, and error handling is integrated a
 ├── config/
 │   ├── config.py         # Feature lists and other settings
 │   └── logger.py         # loguru logger configuration
+├── notebooks/
+|   └── EDA.ipynb 
 ├── data/
 │   ├── raw/              # Raw JSONLines data
 │   └── processed/        # Processed CSV data
+│   └── final/            # Final data
 ├── src/
 │   ├── utils/            # Utility modules:
 │   │   ├── aux_colums_functions.py
 │   │   ├── convert_datatype_utils.py
 │   │   ├── feature_engineering.py
 │   │   └── json_adv_utils.py
+|   |   └── image_utils.py
 │   ├── processing/       # Data processing pipeline:
 │   │   └── data_processing.py
 │   └── modeling/         # Modeling modules:
