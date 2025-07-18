@@ -29,21 +29,28 @@ Structured logging is provided by **loguru**, and error handling is integrated a
 ```
 ├── LICENSE
 ├── README.md
+├── DOC.md                # Working Explanation
+├── poetry.lock
+├── pyproject.toml
 ├── main.py               # Entry point for the pipeline
 ├── MLA_100k_checked_v3.jsonlines  # Dataset (JSONLines)
 ├── pyproject.toml        # Poetry configuration
 ├── config/
 │   ├── config.py         # Feature lists and other settings
 │   └── logger.py         # loguru logger configuration
+├── notebooks/
+|   └── EDA.ipynb 
 ├── data/
 │   ├── raw/              # Raw JSONLines data
 │   └── processed/        # Processed CSV data
+│   └── final/            # Final data
 ├── src/
 │   ├── utils/            # Utility modules:
 │   │   ├── aux_colums_functions.py
 │   │   ├── convert_datatype_utils.py
 │   │   ├── feature_engineering.py
 │   │   └── json_adv_utils.py
+|   |   └── image_utils.py
 │   ├── processing/       # Data processing pipeline:
 │   │   └── data_processing.py
 │   └── modeling/         # Modeling modules:
@@ -68,7 +75,7 @@ Structured logging is provided by **loguru**, and error handling is integrated a
 ## Usage
 Run the full pipeline:
 ```bash
-python main.py
+python main.py o poetry run python main.py
 ```
 Logs will be displayed in the console with colorized, timestamped output.
 
@@ -79,13 +86,12 @@ Logs will be displayed in the console with colorized, timestamped output.
 ## Pipeline Steps
 1. **Data Loading:** `build_dataset()` reads and splits data.
 2. **Data Processing:** `process_data()` applies JSON expansion, cleaning, feature engineering, and data type conversions.
-3. **Feature Selection:** `feature_selection_random_forest()` selects top features using a Random Forest classifier.
-4. **Random Forest Training:** `train_and_evaluate()` trains and evaluates the final Random Forest on all features to select top 15.
-5. **XGBoost Training:** `train_and_evaluate_xgboost()` trains and evaluates an XGBoost classifier on the select features.
+3. **Feature Selection:** `feature_selection_random_forest()` selects top 15 features using a Random Forest classifier.
+4. **XGBoost Training:** `train_and_evaluate_xgboost()` trains and evaluates an XGBoost classifier on the select features.
 
 
 ## Results
 - **Random Forest:** Train accuracy ~0.89, Test accuracy ~0.87.  The slight difference between these scores suggests that the model is generalizing well and is not significantly overfit. This Random Forest Classifier was also used for feature selection, identifying the top 15 most influential features based on the Gini impurity criterion.
 
-- **XGBoost:** XGBoost model achieved comparable performance, with a test accuracy of around 89%. For this model, we prioritized Precision on the positive class, reaching a score of approximately 92%. This metric was selected because the most costly business error is misclassifying a "used" item as "new". A high precision score ensures we minimize this specific type of error
+- **XGBoost:** XGBoost model achieved comparable performance, with a test accuracy of around 89%. For this model, we prioritized Precision on the positive class, reaching a score of approximately 92%. This metric was selected because the most costly business error is misclassifying a "used" item as "new". A high precision score ensures we minimize this specific type of error.
 
