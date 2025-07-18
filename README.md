@@ -93,5 +93,5 @@ Logs will be displayed in the console with colorized, timestamped output.
 ## Results
 - **Random Forest:** Train accuracy ~0.89, Test accuracy ~0.87.  The slight difference between these scores suggests that the model is generalizing well and is not significantly overfit. This Random Forest Classifier was also used for feature selection, identifying the top 15 most influential features based on the Gini impurity criterion.
 
-- **XGBoost:** XGBoost model achieved comparable performance, with a test accuracy of around 89%. For this model, we prioritized Precision on the positive class, reaching a score of approximately 92%. This metric was selected because the most costly business error is misclassifying a "used" item as "new". A high precision score ensures we minimize this specific type of error
+- **XGBoost:** XGBoost model achieved comparable performance, with a test accuracy of around 89%. For this model, we prioritized Precision on the positive class, reaching a score of approximately 92%. This metric was selected because the most costly business error is misclassifying a "used" item as "new". A high precision score ensures we minimize this specific type of error.
 
