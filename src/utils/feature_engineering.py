@@ -1,0 +1,330 @@
+import pandas as pd
+import unicodedata
+from typing import List, Dict, Optional
+from sklearn.preprocessing import MultiLabelBinarizer
+import re
+import numpy as np
+from unidecode import unidecode   # pip install Unidecode
+
+def group_payment_method(df: pd.DataFrame, col_prefix: str) -> pd.DataFrame:
+    """
+    Agrupa los métodos de pago en categorías lógicas.
+
+    Args:
+        df (pd.DataFrame): El DataFrame de entrada.
+        col_prefix (str): El prefijo de las columnas de descripción a procesar.
+
+    Returns:
+        pd.DataFrame: Un DataFrame con las nuevas columnas de grupos de pago 
+                      codificadas.
+    """
+    # 1. Identificar todas las columnas de descripción de pago
+    description_cols = [col for col in df.columns if col.startswith(col_prefix)]
+
+    if not description_cols:
+        print(f"Advertencia: No se encontraron columnas que comiencen con '{col_prefix}'.")
+        return df
+
+    # 2. Para cada fila, obtener todos los grupos de pago únicos que ofrece
+    def _map_method_to_group(method: str) -> str:
+        """
+        Función auxiliar para mapear una descripción de método a un grupo.
+        
+        Versión mejorada para cubrir más casos y manejar ambigüedades.
+        """
+        method = str(method).lower()
+
+        # --- ORDEN IMPORTANTE ---
+        # 1. Se verifica DÉBITO primero, porque algunos nombres de tarjetas de débito
+        #    pueden contener nombres de marcas de crédito (p. ej., "Mastercard Maestro").
+        if any(p in method for p in ["debit", "débito", "maestro", "electron"]):
+            return "debit_card"
+
+        # 2. Se verifica CRÉDITO después.
+        if any(p in method for p in ["credit", "crédito", "visa", "mastercard", "american express", "diners"]):
+            return "credit_card"
+            
+        # 3. Resto de categorías
+        if "mercado_pago" in method or "mercadopago" in method:
+            return "mercado_pago"
+        
+        if any(p in method for p in ["cash", "efectivo", "reembolso"]):
+            return "cash"
+            
+        if any(p in method for p in ["transfer", "transferencia"]):
+            return "transfer"
+            
+        if any(p in method for p in ["cheque", "giro"]):
+            return "check_or_money_order"
+            
+        # "Acordar con el comprador" y cualquier otro valor no reconocido caerán aquí.
+        return "other"
+
+    def get_groups_for_row(row):
+        methods = [row[col] for col in description_cols if pd.notna(row[col])]
+        return {_map_method_to_group(method) for method in methods}
+
+    list_of_groups = df.apply(get_groups_for_row, axis=1)
+
+    # 3. Usar MultiLabelBinarizer para crear columnas binarias (one-hot)
+    mlb = MultiLabelBinarizer()
+    encoded_groups = pd.DataFrame(
+        mlb.fit_transform(list_of_groups),
+        columns=[f"payment_group_{c}" for c in mlb.classes_],
+        index=df.index
+    )
+
+    # 4. Eliminar las columnas de descripción originales
+    df_cleaned = df.drop(columns=description_cols)
+
+    # 5. Unir el DataFrame limpio con las nuevas columnas codificadas
+    df_final = pd.concat([df_cleaned, encoded_groups], axis=1)
+    
+    print(f"Proceso completado. Se eliminaron {len(description_cols)} columnas originales y se crearon {len(encoded_groups.columns)} nuevas columnas de grupos de pago.")
+    
+    return df_final
+
+INPUTATION_CONFIG: Dict[str, Dict[str, Optional[str]]] = {
+        "warranty": {"strategy": "constant", "value": "No warranty"},
+        "seller_address_city.name": {"strategy": "mode"},
+        "seller_address_state.name": {"strategy": "mode"},
+        "shipping_free_methods": {"strategy": "binary_presence"}
+    }
+
+def impute_data(df: pd.DataFrame, imputation_config: Dict[str, Dict[str, Optional[str]]] = INPUTATION_CONFIG) -> pd.DataFrame:
+    """
+    Imputa valores nulos en un DataFrame según una configuración específica.
+
+    Args:
+        df (pd.DataFrame): El DataFrame de entrada.
+        imputation_config (dict): Un diccionario que mapea nombres de columnas
+            a sus estrategias de imputación. Formato esperado:
+            {
+                'columna_1': {'strategy': 'constant', 'value': 'valor_constante'},
+                'columna_2': {'strategy': 'mode'},
+                'columna_3': {'strategy': 'binary_presence'}
+            }
+
+    Returns:
+        pd.DataFrame: Un nuevo DataFrame con los valores imputados.
+    """
+    df_imputed = df.copy()
+    
+    strategies = {
+        'warranty': 'constant',
+        'seller_address_city.name': 'mode',
+        'seller_address_state.name': 'mode',
+        'shipping_free_methods': 'binary_presence'
+    }
+
+    for column, strategy in strategies.items():
+        if column in df_imputed.columns:
+            print(f"Procesando columna '{column}' con estrategia '{strategy}'...")
+            if strategy == 'constant':
+                fill_value = 'No especifica'
+                df_imputed[column] = df_imputed[column].fillna(fill_value)
+            elif strategy == 'mode':
+                mode_value = df_imputed[column].mode()[0]
+                df_imputed[column] = df_imputed[column].fillna(mode_value)
+            elif strategy == 'binary_presence':
+                # Si el valor no es nulo, 1. Si es nulo, 0.
+                df_imputed[column] = df_imputed[column].notna().astype(int)
+    
+    return df_imputed
+
+def _normalize_text(text: str) -> str:
+    """Función auxiliar para limpiar y estandarizar texto."""
+    if not isinstance(text, str):
+        return ""
+    # Convertir a minúsculas
+    text = text.lower()
+    # Quitar acentos
+    text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+    # Quitar caracteres especiales (mantener letras, números y espacios)
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    return text
+
+def _clean(txt: str) -> str:
+    """Minúsculas, sin acentos ni signos → texto alfanumérico sencillo."""
+    if pd.isna(txt):
+        return ""
+    txt = unidecode(str(txt).lower())
+    txt = re.sub(r"[^a-z0-9\s]", " ", txt)          # quita símbolos
+    return re.sub(r"\s+", " ", txt).strip()         # colapsa espacios
+
+
+def add_warranty_features(df: pd.DataFrame,
+                          col: str = "warranty",
+                          drop_original: bool = True) -> pd.DataFrame:
+    """
+    Feature‑engineering de la columna `warranty`.
+
+    Crea:
+    - warranty_group  : categoría (string) con prioridad definida.
+    - con_garantia    : bool
+    - sin_garantia    : bool
+    - reputacion      : bool
+    - _3_6_meses      : bool   (nombres válidos para pandas)
+
+    Args:
+    df  : DataFrame de entrada.
+    col : nombre de la columna de texto con la garantía.
+    drop_original : elimina la columna original si True.
+
+    Returns: 
+    DataFrame con nuevas columnas.
+    """
+    df_ = df.copy()
+
+    # 1) Normalizar texto
+    norm = df_[col].apply(_clean)
+
+    # 2) Reglas regexp por grupo (puedes ampliarlas)
+    patterns = {
+    # 1) Sin garantía explícita
+    #    Ej.: “no warranty”, “sin garantia”, “no garantia”
+    "sin_garantia": (
+        r"\b(?:no|sin)\s+(?:garanti|warranty)\b"          # no garantia / sin garantia
+        r"|(?:no\s+warranty\b)"                           # no warranty
+    ),
+
+    # 2) Aval de reputación / calificaciones
+    #    Ej.: “mi reputacion”, “buenas calificaciones”, “trayectoria”
+    "reputacion": (
+        r"\b(?:reputacion|calificacion(?:es)?|trayectoria|confianza)\b"
+    ),
+
+    # 3) Garantía de 3‑6 meses
+    #    Ej.: “3 meses”, “6 meses”, “3 meses de gtia”, “6 meses de garantia”
+    "_3_6_meses": (
+        r"\b(?:3|6)\s*(?:mes(?:e|o)?s?|dias?)\b"          # 3 meses / 6 meses / 6 dias (por si acaso)
+    ),
+
+    # 4) Garantía genérica o mayor (default “con_garantia”)
+    #    Incluye: garantía, de fábrica, 12 meses, 1 año, gtia, sellado, por vida
+    "con_garantia": (
+        r"\b(?:garant[iia]|gtia|garantiz)\w*"             # garantia, garantias, gtia, garantiza
+        r"|\b(?:con\s+garant[iia])\b"                     # con garantia
+        r"|\b(?:de|por)\s+vida\b"                         # de vida / por vida
+        r"|\b\d+\s+(?:mes(?:e|o)?s?|ano?s?)\b"            # 12 meses, 1 ano, 24 meses, etc.
+        r"|\b(?:un\s+ano|1\s+ano)\b"                      # un ano, 1 ano
+        r"|\b(?:fabrica|de\s+fabrica)\b"                  # fabrica / de fabrica
+        r"|\b(?:sellad[oa]s?)\b"                          # sellado / sellada
+        r"|\bsi\.?\b"                                     # “Sí” / “Si” (mezclado en muchos textos)
+    ),
+}
+
+    # 3) Columnas binarias
+    for new_col, pat in patterns.items():
+        df_[new_col] = norm.str.contains(pat, regex=True, na=False)
+
+    # 4) Columna single‑label con prioridad (np.select es muy rápido)
+    priority = ["sin_garantia", "reputacion", "_3_6_meses", "con_garantia"]
+    condlist  = [df_[p] for p in priority]
+    df_["warranty_group"] = np.select(condlist, priority, default="otros")
+
+    if drop_original:
+        df_.drop(columns=[col], inplace=True)
+
+    return df_
+
+
+def calcular_diferencia_meses(df):
+    """
+    Calcula la diferencia de meses entre las columnas 'start_time' y 'stop_time' de un DataFrame.
+
+    Args:
+        df (pd.DataFrame): DataFrame con las columnas 'start_time' y 'stop_time'.
+
+    Returns:
+        pd.DataFrame: DataFrame con la nueva columna 'diferencia_meses'.
+    """
+    # Convertir las columnas a formato de fecha
+    df['start_time'] = pd.to_datetime(df['start_time'])
+    df['stop_time'] = pd.to_datetime(df['stop_time'])
+
+    # Calcular la diferencia en meses
+    df['diferencia_meses'] = (df['stop_time'].dt.year - df['start_time'].dt.year) * 12 + \
+                             (df['stop_time'].dt.month - df['start_time'].dt.month)
+
+    return df
+
+def add_title_flags(df: pd.DataFrame, title_col: str = "title") -> pd.DataFrame:
+    """
+    Agrega las columnas:
+      - title_cont_usado  (True si el título sugiere artículo usado)
+      - title_cont_nuevo  (True si NO parece usado y se menciona 'nuevo')
+    
+    Parameters
+    ----------
+    df : DataFrame de entrada que contiene la columna `title`
+    title_col : nombre de la columna con los títulos (por defecto 'title')
+    
+    Returns
+    -------
+    DataFrame con las nuevas columnas.
+    """
+    # Copiamos para no modificar el original
+    df = df.copy()
+
+    # Normalizamos el texto
+    df["_title_norm"] = df[title_col].astype(str).apply(_clean)
+
+    # Patrón para detectar indicios de “usado”
+    used_phrases = [
+        r"buen estado",
+        r"impecable estado",
+        r"excelente estado",
+        r"increible estado",
+        r"perfecto estado",
+        r"antiguo",
+        r"viejo",
+        r"funciona perfecto",
+        r"como nuevo",
+    ]
+    pattern_used = re.compile("|".join(used_phrases))
+    df["title_cont_usado"] = df["_title_norm"].str.contains(pattern_used)
+
+    # Patrón para detectar “nuevo” **solo si no se marcó usado**
+    df["title_cont_nuevo"] = (
+        ~df["title_cont_usado"] & df["_title_norm"].str.contains(r"\bnuevo\b")
+    )
+
+    # (Opcional) si no quieres conservar la columna normalizada:
+    df.drop(columns=["_title_norm", title_col], inplace=True)
+
+    return df
+
+def set_datatypes(df, numericas, booleanas, categoricas_nom):
+    """
+    Convierte las columnas de un DataFrame a los tipos de datos especificados.
+
+    Args:
+        df (pd.DataFrame): El DataFrame a procesar.
+        numericas (list): Lista de columnas que se convertirán a tipo numérico.
+        booleanas (list): Lista de columnas que se convertirán a tipo booleano.
+        categoricas_nom (list): Lista de columnas que se convertirán a tipo categórico.
+
+    Returns:
+        pd.DataFrame: El DataFrame con los tipos de datos actualizados.
+    """
+    # Trabajar sobre una copia para evitar advertencias
+    df_processed = df.copy()
+
+    # 1. Convertir a numéricas (errores se convierten en NaN)
+    df_processed[numericas] = df_processed[numericas].apply(pd.to_numeric, errors='coerce')
+    print(f"Columnas numéricas convertidas.")
+
+    # 2. Convertir a booleanas
+    df_processed[booleanas] = df_processed[booleanas].astype(bool)
+    print(f"Columnas booleanas convertidas.")
+
+    # 3. Convertir a categóricas
+    for col in categoricas_nom:
+        if col in df_processed.columns:
+            df_processed[col] = df_processed[col].astype('category')
+        else:
+            print(f"Advertencia: La columna '{col}' no se encontró en el DataFrame.")
+    print(f"Columnas categóricas convertidas.")
+    
+    return df_processed
