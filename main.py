@@ -27,7 +27,8 @@ import json
 import pandas as pd
 from src.processing.data_processing import process_data
 from src.modeling.feature_selection import feature_selection_random_forest
-
+from src.modeling.xgboost_training import train_and_evaluate_xgboost
+from config.logger import logger
 
 
 # You can safely assume that `build_dataset` is correctly implemented
@@ -45,7 +46,7 @@ def build_dataset():
 
 
 if __name__ == "__main__":
-    print("Loading dataset...")
+    logger.info("Loading dataset...")
     # Train and test data following sklearn naming conventions
     # X_train (X_test too) is a list of dicts with information about each item.
     # y_train (y_test too) contains the labels to be predicted (new or used).
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     
 
     # Insert your code below this line:
-    print("Processing data...")
+    logger.info("Processing data...")
     # Convert to DataFrames for processing
     df_train = pd.DataFrame(X_train)
     df_test = pd.DataFrame(X_test)
@@ -75,11 +76,11 @@ if __name__ == "__main__":
     X_test_processed = df_test_processed.to_dict('records')
     # y_test remains the same as it was not modified
 
-    print("Data processing finished.")
-    print(f"Features for modeling: {len(X_train_processed[0].keys())}")
+    logger.info("Data processing finished.")
+    logger.info(f"Features for modeling: {len(X_train_processed[0].keys())}")
     
     # 2. Feature Selection
-    print("\nStarting feature selection...")
+    logger.info("Starting feature selection...")
     selected_features, importances, model = feature_selection_random_forest(
         X_train=X_train_processed,
         y_train=y_train_processed,
@@ -89,7 +90,15 @@ if __name__ == "__main__":
     )
 
     # Now you can use the 'selected_features' for the final model training
-    print("\nFeature selection completed.")
-    # ...
-
+    logger.info("Feature selection completed.")
+    
+    # 3. XGBoost Model Training and Evaluation
+    train_and_evaluate_xgboost(
+        X_train=X_train_processed,
+        y_train=y_train_processed,
+        X_test=X_test_processed,
+        y_test=y_test,
+        features=selected_features
+    )
+    
 
