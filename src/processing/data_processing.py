@@ -4,7 +4,7 @@ from typing import List, Dict
 # Importar las funciones de utilidad que creaste en tu notebook
 from src.utils.json_adv_utils import detect_json_columns, expand_json_column
 from src.utils.aux_colums_functions import drop_column_variations, replace_empty_with_nan, get_unique_values_from_variations, summarize_nulls
-from src.utils.feature_engineering import encode_payment_method_groups, impute_data, add_warranty_features, calcular_diferencia_meses, add_title_flags
+from src.utils.feature_engineering import group_payment_method, impute_data, add_warranty_features, calcular_diferencia_meses, add_title_flags
 from src.utils.convert_datatype_utils import set_datatypes
 from config.config import configs
 
@@ -36,7 +36,7 @@ def process_data(df: pd.DataFrame, reference_df: pd.DataFrame = None) -> pd.Data
         df_cleaned_concat = drop_column_variations(df_cleaned_concat, col)
 
     # 3. Codificar métodos de pago
-    df_cleaned_concat_enc = encode_payment_method_groups(
+    df_cleaned_concat_enc = group_payment_method(
         df_cleaned_concat, 
         'non_mercado_pago_payment_methods_description'
     )

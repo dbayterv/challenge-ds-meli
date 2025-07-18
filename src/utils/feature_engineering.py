@@ -26,9 +26,24 @@ def group_payment_method(df: pd.DataFrame, col_prefix: str) -> pd.DataFrame:
         return df
 
     # 2. Para cada fila, obtener todos los grupos de pago únicos que ofrece
+    def _map_method_to_group(method: str) -> str:
+        """Función auxiliar para mapear una descripción de método a un grupo."""
+        method = str(method).lower()
+        if any(p in method for p in ["credit", "crédito"]):
+            return "credit_card"
+        if any(p in method for p in ["debit", "débito"]):
+            return "debit_card"
+        if "mercado_pago" in method:
+            return "mercado_pago"
+        if any(p in method for p in ["cash", "efectivo"]):
+            return "cash"
+        if any(p in method for p in ["transfer", "transferencia"]):
+            return "transfer"
+        return "other"
+
     def get_groups_for_row(row):
         methods = [row[col] for col in description_cols if pd.notna(row[col])]
-        return {group_payment_method(method) for method in methods}
+        return {_map_method_to_group(method) for method in methods}
 
     list_of_groups = df.apply(get_groups_for_row, axis=1)
 
