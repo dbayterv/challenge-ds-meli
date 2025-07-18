@@ -29,10 +29,10 @@ class Config(BaseSettings):
         "shipping_free_shipping", "shipping_free_methods", "sub_status_deleted",
         "sub_status_expired", "sub_status_suspended", "tags_dragged_bids_and_visits",
         "tags_dragged_visits", "tags_free_relist", "tags_good_quality_thumbnail",
-        "tags_poor_quality_thumbnail", "payment_group_Arreglo_Directo",
-        "payment_group_MercadoPago", "payment_group_Tarjeta_Credito",
-        "payment_group_Transferencia_Giro", "sin_garantia", "reputacion",
-        "_3_6_meses", "con_garantia", "title_cont_usado", "title_cont_nuevo"
+        "tags_poor_quality_thumbnail", "payment_group_debit_card",
+        "payment_group_mercado_pago", "payment_group_credit_card","reputacion",
+        "payment_group_cash","payment_group_transfer", "payment_group_check_or_money_order", "sin_garantia", 
+        "_3_6_meses", "con_garantia", "title_cont_usado", "title_cont_nuevo","payment_group_other"
     ]
     col_categoricas: list[str] = [
         "site_id", "buying_mode", "international_delivery_mode", "currency_id",

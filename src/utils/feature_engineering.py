@@ -27,18 +27,37 @@ def group_payment_method(df: pd.DataFrame, col_prefix: str) -> pd.DataFrame:
 
     # 2. Para cada fila, obtener todos los grupos de pago únicos que ofrece
     def _map_method_to_group(method: str) -> str:
-        """Función auxiliar para mapear una descripción de método a un grupo."""
+        """
+        Función auxiliar para mapear una descripción de método a un grupo.
+        
+        Versión mejorada para cubrir más casos y manejar ambigüedades.
+        """
         method = str(method).lower()
-        if any(p in method for p in ["credit", "crédito"]):
-            return "credit_card"
-        if any(p in method for p in ["debit", "débito"]):
+
+        # --- ORDEN IMPORTANTE ---
+        # 1. Se verifica DÉBITO primero, porque algunos nombres de tarjetas de débito
+        #    pueden contener nombres de marcas de crédito (p. ej., "Mastercard Maestro").
+        if any(p in method for p in ["debit", "débito", "maestro", "electron"]):
             return "debit_card"
-        if "mercado_pago" in method:
+
+        # 2. Se verifica CRÉDITO después.
+        if any(p in method for p in ["credit", "crédito", "visa", "mastercard", "american express", "diners"]):
+            return "credit_card"
+            
+        # 3. Resto de categorías
+        if "mercado_pago" in method or "mercadopago" in method:
             return "mercado_pago"
-        if any(p in method for p in ["cash", "efectivo"]):
+        
+        if any(p in method for p in ["cash", "efectivo", "reembolso"]):
             return "cash"
+            
         if any(p in method for p in ["transfer", "transferencia"]):
             return "transfer"
+            
+        if any(p in method for p in ["cheque", "giro"]):
+            return "check_or_money_order"
+            
+        # "Acordar con el comprador" y cualquier otro valor no reconocido caerán aquí.
         return "other"
 
     def get_groups_for_row(row):
