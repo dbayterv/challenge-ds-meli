@@ -63,10 +63,8 @@ if __name__ == "__main__":
     df_test = pd.DataFrame(X_test)
 
     # Process train and test data
-    # Primero procesamos el de entrenamiento para que sirva de referencia
     df_train_processed = process_data(df_train)
     
-    # Luego procesamos el de prueba, usando el de entrenamiento como referencia para alinear columnas
     df_test_processed = process_data(df_test, reference_df=df_train_processed)
 
     # Convert back to list of dicts for any subsequent steps if needed
