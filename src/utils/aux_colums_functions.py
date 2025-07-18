@@ -68,7 +68,7 @@ def replace_empty_with_nan(
         if isinstance(val, str):
             return not val.strip()
 
-        # 4. AHORA es seguro chequear nulos escalares (None, np.nan)
+        # 4. chequear nulos escalares (None, np.nan)
         if pd.isna(val):
             return True
             
