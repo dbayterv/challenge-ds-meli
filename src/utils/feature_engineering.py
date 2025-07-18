@@ -1,43 +1,28 @@
-
 import pandas as pd
+import unicodedata
+from typing import List, Dict, Optional
 from sklearn.preprocessing import MultiLabelBinarizer
-from typing import List, Any, Dict, Optional
+import re
+import numpy as np
+from unidecode import unidecode   # pip install Unidecode
 
-def group_payment_method(payment_method: str) -> str:
-    """Clasifica un método de pago en una categoría lógica."""
-    if not isinstance(payment_method, str):
-        return 'Other'
-    credit_cards = ['Visa', 'MasterCard', 'American Express', 'Diners', 'Tarjeta de crédito', 'Visa Electron', 'Mastercard Maestro']
-    if payment_method in credit_cards:
-        return 'Tarjeta_Credito'
-    if payment_method == 'MercadoPago':
-        return 'MercadoPago'
-    direct_arrangement = ['Acordar con el comprador', 'Efectivo', 'Contra reembolso']
-    if payment_method in direct_arrangement:
-        return 'Arreglo_Directo'
-    manual_transfer = ['Transferencia bancaria', 'Cheque certificado', 'Giro postal']
-    if payment_method in manual_transfer:
-        return 'Transferencia_Giro'
-    return 'Other'
-
-def encode_payment_method_groups(df: pd.DataFrame, base_name: str) -> pd.DataFrame:
+def group_payment_method(df: pd.DataFrame, col_prefix: str) -> pd.DataFrame:
     """
-    Identifica columnas de descripción de pago, las agrupa en categorías,
-    crea columnas binarias para cada categoría y elimina las columnas originales.
+    Agrupa los métodos de pago en categorías lógicas.
 
     Args:
         df (pd.DataFrame): El DataFrame de entrada.
-        base_name (str): El prefijo de las columnas de descripción a procesar.
+        col_prefix (str): El prefijo de las columnas de descripción a procesar.
 
     Returns:
         pd.DataFrame: Un DataFrame con las nuevas columnas de grupos de pago 
-                      codificadas y las originales eliminadas.
+                      codificadas.
     """
     # 1. Identificar todas las columnas de descripción de pago
-    description_cols = [col for col in df.columns if col.startswith(base_name)]
+    description_cols = [col for col in df.columns if col.startswith(col_prefix)]
 
     if not description_cols:
-        print(f"Advertencia: No se encontraron columnas que comiencen con '{base_name}'.")
+        print(f"Advertencia: No se encontraron columnas que comiencen con '{col_prefix}'.")
         return df
 
     # 2. Para cada fila, obtener todos los grupos de pago únicos que ofrece
@@ -90,36 +75,28 @@ def impute_data(df: pd.DataFrame, imputation_config: Dict[str, Dict[str, Optiona
         pd.DataFrame: Un nuevo DataFrame con los valores imputados.
     """
     df_imputed = df.copy()
+    
+    strategies = {
+        'warranty': 'constant',
+        'seller_address_city.name': 'mode',
+        'seller_address_state.name': 'mode',
+        'shipping_free_methods': 'binary_presence'
+    }
 
-    for column, config in imputation_config.items():
-        if column not in df_imputed.columns:
-            print(f"Advertencia: La columna '{column}' no se encontró en el DataFrame.")
-            continue
-
-        strategy = config.get('strategy')
-        print(f"Procesando columna '{column}' con estrategia '{strategy}'...")
-
-        if strategy == 'constant':
-            fill_value = config.get('value')
-            df_imputed[column].fillna(fill_value, inplace=True)
-        
-        elif strategy == 'mode':
-            mode_value = df_imputed[column].mode()[0]
-            df_imputed[column].fillna(mode_value, inplace=True)
-        
-        elif strategy == 'binary_presence':
-            # Convierte a True si no es nulo, y a False si es nulo.
-            df_imputed[column] = df_imputed[column].notna()
-        
-        else:
-            print(f"Advertencia: Estrategia '{strategy}' no reconocida para la columna '{column}'.")
-
+    for column, strategy in strategies.items():
+        if column in df_imputed.columns:
+            print(f"Procesando columna '{column}' con estrategia '{strategy}'...")
+            if strategy == 'constant':
+                fill_value = 'No especifica'
+                df_imputed[column] = df_imputed[column].fillna(fill_value)
+            elif strategy == 'mode':
+                mode_value = df_imputed[column].mode()[0]
+                df_imputed[column] = df_imputed[column].fillna(mode_value)
+            elif strategy == 'binary_presence':
+                # Si el valor no es nulo, 1. Si es nulo, 0.
+                df_imputed[column] = df_imputed[column].notna().astype(int)
+    
     return df_imputed
-
-import pandas as pd
-import numpy as np
-import re
-import unicodedata
 
 def _normalize_text(text: str) -> str:
     """Función auxiliar para limpiar y estandarizar texto."""
@@ -132,11 +109,6 @@ def _normalize_text(text: str) -> str:
     # Quitar caracteres especiales (mantener letras, números y espacios)
     text = re.sub(r'[^a-z0-9\s]', '', text)
     return text
-
-import re
-import numpy as np
-import pandas as pd
-from unidecode import unidecode   # pip install Unidecode
 
 def _clean(txt: str) -> str:
     """Minúsculas, sin acentos ni signos → texto alfanumérico sencillo."""
@@ -223,8 +195,6 @@ def add_warranty_features(df: pd.DataFrame,
     return df_
 
 
-import pandas as pd
-
 def calcular_diferencia_meses(df):
     """
     Calcula la diferencia de meses entre las columnas 'start_time' y 'stop_time' de un DataFrame.
@@ -290,9 +260,6 @@ def add_title_flags(df: pd.DataFrame, title_col: str = "title") -> pd.DataFrame:
     df.drop(columns=["_title_norm", title_col], inplace=True)
 
     return df
-
-import pandas as pd
-import numpy as np
 
 def set_datatypes(df, numericas, booleanas, categoricas_nom):
     """
